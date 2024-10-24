@@ -1,414 +1,381 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
-typedef struct {
-    char name[15];
-    int code;
-    double rate;
+void delay(int second);
+void printWithAnimation(const char *text);
+void skeletonStatus();
+void ratStatus();
+void level_up(int *exp, int *level);
+#define MAX_ITEMS 2 // Maximum items in inventory
 
-} product;
-product item;
-FILE *f;
+// Define an Item structure
+struct Item {
+    char nameItem[30];  // Name of the item
+    int quantity;   // Quantity of the item
+    char effect[20];
+};
 
-void add();
-void by_rate();
-void by_name();
-void by_code();
-void viewBYcode();
-void viewBYrate();
-void viewBYname();
-void dltByName();
-void dltByCode();
+// Define the Inventory structure
+struct Inventory {
+    struct Item items[MAX_ITEMS]; // Array to store items
+    int itemCount;                // Total number of different items
+};
 
-int i,j,k,flag;
+// Define a structure for a class
+struct PlayerClass {
+    char name[20];   // Class name
+    int health;      // Health points
+    int attackPower; // Attack power
+    int defense;     // Defense power
+};
 
-int main() {
-    printf("\n_______________________________WELCOME_________________________________________\n");
-    do {
-        printf("\n\n\n\n\t\t\t[1]Add an item\n\t\t\t[2]Buy item by name\n\t\t\t[3]Buy item by code\n");
-        printf("\t\t\t[4]Search by name\n\t\t\t[5]Search by code\n\t\t\t[6]Search by rate\n");
-        printf("\t\t\t[7]View by name\n\t\t\t[8]View by code\n\t\t\t[9]View by rate\n\t\t\t[0]Exit\n\t\t\t ");
-        scanf("%d",&j);
+// Function to select a class
+struct PlayerClass selectClass() {
+    int choice;
+    struct PlayerClass pc;
 
-        switch(j) {
+    // Display class options
+    printf("\n");
+    printf("\t\t\t\t\t\t-=CHOOSE YOUR CLASS =-\n\n");
+    printf("\t\t[1] Warrior\t\t\t");
+    printf("[2] Mage\t\t\t");
+    printf("[3] Archer\n");
+    const char *classSelect = "\t\t  - Attack: 20\t\t\t  - Attack: 25\t\t\t  - Attack: 15\n\t\t  - Health: 150\t\t\t  - Health: 100\t\t\t  - Health: 120\n\t\t  - Defense: 15\t\t\t  - Defense: 5\t\t\t  - Defense: 10\n\n";
+    delay(1);
+    printf("\t\t\t\tEnter your choice (1-3): ");
+    scanf(" %d", &choice);
+
+    // Assign class stats based on choice
+    switch (choice) {
         case 1:
-            add();
+            strcpy(pc.name, "Warrior");
+            pc.health = 150;
+            pc.attackPower = 20;
+            pc.defense = 15;
             break;
         case 2:
-            dltByName();
+            strcpy(pc.name, "Mage");
+            pc.health = 100;
+            pc.attackPower = 25;
+            pc.defense = 5;
             break;
         case 3:
-            dltByCode();
-
-            break;
-        case 4:
-            by_name();
-
-            break;
-        case 5:
-            by_code();
-
-            break;
-        case 6:
-            by_rate();
-            break;
-        case 7:
-            viewBYname();
-            break;
-        case 8:
-            viewBYcode();
-            break;
-        case 9:
-            viewBYrate();
+            strcpy(pc.name, "Archer");
+            pc.health = 120;
+            pc.attackPower = 15;
+            pc.defense = 10;
             break;
         default:
-            if(j!=0) {
-                printf("Enter correct number\n");
-                printf("\nPress any key to try again.");
-                getch();
-            }
+            printf("Invalid choice, defaulting to Warrior.\n");
+            strcpy(pc.name, "Warrior");
+            pc.health = 150;
+            pc.attackPower = 20;
+            pc.defense = 15;
             break;
+    }
 
+    return pc;
+}
+
+// Inventory functions
+void initInventory(struct Inventory *inventory) {
+    inventory->itemCount = 0; // Initialize with no items
+}
+
+void addItem(struct Inventory *inventory, const char *nameItem, int quantity, const char *effect) {
+    // Check if the item is already in the inventory
+    for (int i = 0; i < inventory->itemCount; i++) {
+        if (strcmp(inventory->items[i].nameItem, nameItem) == 0) {
+            inventory->items[i].quantity += quantity; // Update quantity
+            printf("%d %s added to inventory.\n", quantity, nameItem);
+            return;
         }
-        system("cls");
-    } while(j!=0);
-    printf("\n\n--------------------------------GOOD BYE!!------------------------------------\n\n");
+    }
+    // Add new item if space is available
+    if (inventory->itemCount < MAX_ITEMS) {
+        strcpy(inventory->items[inventory->itemCount].nameItem, nameItem);
+        inventory->items[inventory->itemCount].quantity = quantity;
+        inventory->itemCount++;
+        printf("%d %s added to inventory.\n", quantity, nameItem);
+    } else {
+        printf("Inventory is full!\n");
+    }
+}
+
+void removeItem(struct Inventory *inventory, const char *nameItem, int quantity) {
+    for (int i = 0; i < inventory->itemCount; i++) {
+        if (strcmp(inventory->items[i].nameItem, nameItem) == 0) {
+            if (inventory->items[i].quantity >= quantity) {
+                inventory->items[i].quantity -= quantity;
+                printf("%d %s removed from inventory.\n", quantity, nameItem);
+                if (inventory->items[i].quantity == 0) {
+                    // Shift the remaining items to avoid empty spaces
+                    for (int j = i; j < inventory->itemCount - 1; j++) {
+                        inventory->items[j] = inventory->items[j + 1];
+                    }
+                    inventory->itemCount--;
+                }
+            } else {
+                printf("Not enough %s to remove!\n", nameItem);
+            }
+            return;
+        }
+    }
+    printf("%s not found in inventory.\n", nameItem);
+}
+
+void displayInventory(const struct Inventory *inventory) {
+    printf("Inventory:\n");
+    for (int i = 0; i < inventory->itemCount; i++) {
+        printf("  - %s (x%d)\n", inventory->items[i].nameItem, inventory->items[i].quantity);
+    }
+    if (inventory->itemCount == 0) {
+        printf("  [empty]\n");
+    }
+}
+
+int main() {
+    // color system green
+    system("COLOR 0a");
+
+    // Player selects a class
+    struct PlayerClass pc = selectClass();
+
+    // color system gold
+    system("COLOR 06");
+
+    // player information
+    int health = pc.health;
+    int damage = pc.attackPower;
+    int defense = pc.defense;
+    int money = 0;
+    int level = 0;
+    int exp = 0;
+    struct Inventory playerInventory;
+    initInventory(&playerInventory);
+    addItem(&playerInventory, "Health Potion", 2, "heal");
+    addItem(&playerInventory, "Strength Potion", 2, "boost_attack");
+
+    /*
+    addItem(&playerInventory, "Health Potion", 5, "heal");      // add item
+    displayInventory(&playerInventory);                 // show item
+    removeItem(&playerInventory, "Health Potion", 2);   // remove item
+    */
+
+    /*
+    Items:
+                  +3 dmg          +6 dmg        +12 dmg       +18 dmg         +24 dmg         +30 dmg
+    Weapons = "Wooden Sword", "Stone Sword", "Iron Sword", "Cobalt Sword", "Diamond Sword", "God Sword"
+                    +10 Health             +25 Health            +10 Defense             +20 Defense               +5 damage               +10 damage
+    Potions = "Small Health Potion", "Large Health Potion", "Small Defense Potion", "Large Defense Potion", "Small Strength Potion", "Large Strength Potion"
+    */
+
+    // player answer
+    char answer = 'd';
+
+    // skeleton information
+    int skeleton_level = 1;
+    int skeleton_health = 5;
+    int skeleton_defense = 2;
+    int skeleton_damage = 1;
+
+    // rat information
+    int rat_level = 1;
+    int rat_health = 3;
+    int rat_defense = 1;
+    int rat_damage = 1;
+
+    const char *message1 = "Villager: Hello Adventurer I'm a normal villager in here\n";
+    const char *message2 = "Villager: So... I need you to help me something, did you see?\n";
+    const char *message3 = "Villager: Yeah! Those skeleton it's bother me so much when i'm doing something\n";
+    const char *message4 = "Villager: You need to kill those skeleton for me please thank you!\n\n";
+    delay(2);
+    /*
+    printWithAnimation(message1);
+    delay(1);
+    printWithAnimation(message2);
+    delay(1);
+    printWithAnimation(message3);
+    delay(1);
+    printWithAnimation(message4);
+    delay(1);
+    */
+
+    skeletonStatus(); // skeleton pic
+    scanf(" %c", &answer);
+    printf("\n");
+
+    if (answer == 'f') { // flee option
+        answer = 'd';
+        const char *answer_flee = "Log: You ran away from Skeleton! And you found a Village And have something moved!\n";
+        const char *message1 = "Villager: Hello Adventurer I'm a normal villager in here\n";
+        const char *message2 = "Villager: So... I need you to help me something, did you see?\n";
+        const char *message3 = "Villager: Yeah! Those skeleton it's bother me so much when i'm doing something\n";
+        const char *message4 = "Villager: You need to kill those skeleton for me please thank you!\n\n";
+        delay(2);
+        /*
+        printf("=========================================\n");
+        printWithAnimation(answer_flee);
+        printWithAnimation(message1);
+        delay(1);
+        printWithAnimation(message2);
+        delay(1);
+        printWithAnimation(message3);
+        delay(1);
+        printWithAnimation(message4);
+        delay(1);
+        printf("=========================================\n");
+        */
+        ratStatus(); // rat pic
+        scanf(" %c", &answer);
+        printf("\n");
+        if (answer == 'b') { // rat attack
+        answer = 'd';
+        while (1) {
+            if (health <= 0) {
+                printf("=================================\n");
+                printf("\tGame over!\n");
+                printf("=================================\n");
+                break;
+            }
+
+            rat_health = (rat_health - (damage - rat_defense));
+            health = (health - (rat_damage - defense));
+
+            delay(1);
+            printf("====================================\n");
+            printf("[Attack](a) | [Inv](i) | [Flee](f): \n");
+            scanf(" %c", &answer);
+            if (answer == 'a') {
+                answer = 'd';
+                printf("[%d]Rat, Health: %d, Damage: %d\n", rat_level, rat_health, rat_damage);
+                printf("[%d]Player, Health: %d, Damage: %d\n", level, health, damage);
+                if (skeleton_health <= 0) {
+                    delay(1);
+                    exp += 5;
+                    printf("=================================\n");
+                    printf("Log: Rat dead, Gain %d Exp!\n\n", exp);
+                    level_up(&exp, &level);  // Fix: Pass exp and level by reference
+                }
+            }
+            else if (answer == 'i') {
+                answer = 'd';
+
+                displayInventory(&playerInventory);
+            }
+        }
+    }
+    }
+
+    else if (answer == 'b') { // skeleton attack
+        answer = 'd';
+        while (1) {
+            if (health <= 0) {
+                printf("=================================\n");
+                printf("\tGame over!\n");
+                printf("=================================\n");
+                break;
+            }
+
+            skeleton_health = (skeleton_health - (damage - skeleton_defense));
+            health = (health - (skeleton_damage - defense));
+
+            delay(1);
+            printf("====================================\n");
+            printf("[Attack](a) | [Inv](i) | [Flee](f): \n");
+            scanf(" %c", &answer);
+            if (answer == 'a') {
+                answer = 'd';
+                printf("[%d]Skeleton, Health: %d, Damage: %d\n", skeleton_level, skeleton_health, skeleton_damage);
+                printf("[%d]Player, Health: %d, Damage: %d\n", level, health, damage);
+                if (skeleton_health <= 0) {
+                    delay(1);
+                    exp += 5;
+                    printf("=================================\n");
+                    printf("Log: Skeleton dead, Gain %d Exp!\n\n", exp);
+                    level_up(&exp, &level);  // Fix: Pass exp and level by reference
+                    break;
+                }
+            }
+            else if (answer == 'i') {
+                answer = 'd';
+                displayInventory(&playerInventory);
+
+
+            }
+        }
+    }
 
     return 0;
 }
 
-void add() {
-    system("cls");
-    f=fopen("list.txt","a+");
-    printf("\n\n\t\tCode:");
-    scanf("%d",&item.code);
-    printf("\t\tName:");
-    scanf("%s",&item.name);
-    printf("\t\tRate:");
-    scanf("%lf",&item.rate);
-    fprintf(f,"\n%d\t%s\t%.2lf",item.code,item.name,item.rate);
-    printf("\nItem success fully added.\n");
-    fclose(f);
-    printf("\nPress any key to main menu.");
-    getch();
+void skeletonStatus() {
+    int skeleton_level = 1;
+    int skeleton_health = 5;
+    int skeleton_defense = 1;
+    int skeleton_damage = 1;
+
+    printf("    [%d]Skeleton\n", skeleton_level);
+    printf("         .-.\n");
+    printf("        (o.o)\n");
+    printf("         |=|\n");
+    printf("        __|__\n");
+    printf("      //.=|=.\\\\\n");
+    printf("     // .=|=. \\\\\n");
+    printf("     \\\\ .=|=. //\n");
+    printf("Health: %d   Damage: %d\n", skeleton_health, skeleton_damage);
+    printf("-------------------------------------\n");
+    printf("[Battle](b) | [Flee](f): ");
 }
 
-void by_code() {
-    system("cls");
-    int cd;
-    f=fopen("list.txt","r");
-    if(f==NULL) {
-        printf("\nfile not found\n");
-        printf("\nPress any key to main menu.");
-        getch();
-        return;
-    }
-    printf("\n\n\n\t\t\tEnter code:");
-    scanf("%d",&cd);
-    flag=0;
-    while(!feof(f)) {
-        fscanf(f,"%d\t%s\t%lf\t",&item.code,item.name,&item.rate);
-        if(cd==item.code) {
-            flag=1;
+void ratStatus() {
+    int rat_level = 1;
+    int rat_health = 3;
+    int rat_defense = 1;
+    int rat_damage = 1;
+
+    printf("    [%d]Rat\n", rat_level);
+    printf("      ()_()\n");
+    printf("     ( o.o )\n");
+    printf("      > ^ <\n");
+    printf("     /     \\\n");
+    printf("    /| | | |\\\n");
+    printf("   (_|_|_|_|_)\n");
+    printf("Health: %d   Damage: %d\n", rat_health, rat_damage);
+    printf("-------------------------------------\n");
+    printf("[Battle](b): | [Flee](f): ");
+}
+
+void level_up(int *exp, int *level) {
+    int exp_needed[] = {20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300, 320, 340, 360, 380, 400};
+
+    for (int i = *level; i < 20; i++) {
+        if (*exp >= exp_needed[i]) {
+            *exp -= exp_needed[i];
+            *level += 1;
+            printf("Log: Congratulations, now you are Level %d! Need %d exp to next level\n", *level, exp_needed[i + 1]);
+        } else {
             break;
         }
     }
-    if(flag==0)
-        printf("\nNot Found!!\n");
-    else {
-        printf("\n\t\tCode\tName\tRate\n");
-        printf("\n\t\t%d\t%s\t%.2lf\n",item.code,item.name,item.rate);
-    }
-    fclose(f);
-    printf("\nPress any key to main menu.");
-    getch();
 }
 
-void by_rate() {
-    system("cls");
-    int rt;
-    f=fopen("list.txt","r");
-    if(f==NULL) {
-        printf("\nfile not found\n");
-        printf("\nPress any key to main menu.");
-        getch();
-        return;
-    }
-    printf("\n\n\n\t\t\tEnter rate:");
-    scanf("%d",&rt);
-    flag=0;
-    while(!feof(f)) {
-        fscanf(f,"%d\t%s\t%lf",&item.code,item.name,&item.rate);
-        if(rt==(int)item.rate) {
-            flag=1;
-
-            break;
-        }
-    }
-    if(flag==0)
-        printf("\nNot Found!!\n");
-    else {
-        printf("\n\t\tCode\tName\tRate\n");
-        printf("\n\t\t%d\t%s\t%.2lf\n",item.code,item.name,item.rate);
-    }
-    fclose(f);
-    printf("\nPress any key to main menu.");
-    getch();
+// delay
+void delay(int second) {
+    int milli_seconds = 1000 * second;
+    clock_t start_time = clock();
+    while (clock() < start_time + milli_seconds);
 }
 
-void by_name() {
-    system("cls");
-    f=fopen("list.txt","r");
-    if(f==NULL) {
-        printf("\nfile not found\n");
-        printf("\nPress any key to main menu.");
-        getch();
-        return;
+// Text animation
+void printWithAnimation(const char *text) {
+    while (*text) {
+        printf("%c", *text++);
+        fflush(stdout); // force flush to display each character immediately
+        usleep(50000);  // delay of 50 milliseconds between each character
     }
-    char nm[20];
-    printf("\n\n\n\t\t\tEnter name:");
-    scanf("%s",nm);
-    flag=0;
-    while(!feof(f)) {
-        fscanf(f,"%d\t%s\t%lf\n",&item.code,item.name,&item.rate);
-        if(!stricmp(nm,item.name)) {
-            flag=1;
-            break;
-        }
-    }
-    if(flag==0)
-        printf("\nNot Found!!\n");
-    else {
-        printf("\n\t\tCode\tName\tRate\n");
-        printf("\n\t\t%d\t%s\t%.2lf\n",item.code,item.name,item.rate);
-    }
-    fclose(f);
-    printf("\nPress any key to main menu.");
-    getch();
-}
-
-
-void viewBYname() {
-    system("cls");
-    f=fopen("list.txt","r");
-    if(f==NULL) {
-        printf("\nfile not found\n");
-        printf("\nPress any key to main menu.");
-        getch();
-        return;
-    }
-    product item[100];
-    double tmp;
-    char temp[20];
-    i=0;
-    while(!feof(f)) {
-        fscanf(f,"%d\t%s\t%lf\n",&item[i].code,item[i].name,&item[i].rate);
-        i++;
-    }
-    for(k=0; k<i; k++) {
-        for(j=k; j<i; j++) {
-            if(strcmp(item[k].name,item[j].name)>0) {
-                tmp=item[k].rate;
-                item[k].rate=item[j].rate;
-                item[j].rate=tmp;
-
-                item[k].code=item[k].code^item[j].code;
-                item[j].code=item[k].code^item[j].code;
-                item[k].code=item[k].code^item[j].code;
-
-                strcpy(temp,item[k].name);
-                strcpy(item[k].name,item[j].name);
-                strcpy(item[j].name,temp);
-
-            }
-        }
-    }
-    printf("\n\t\tName            Code       Rate\n");
-    for(k=0; k<i; k++)
-        printf("\t\t%-11s   %6d   %8.2lf\n",item[k].name,item[k].code,item[k].rate);
-    fclose(f);
-    printf("\nPress any key to main menu.");
-    getch();
-}
-
-
-void viewBYrate() {
-    system("cls");
-    f=fopen("list.txt","r");
-    if(f==NULL) {
-        printf("\nfile not found\n");
-        printf("\nPress any key to main menu.");
-        getch();
-        return;
-    }
-    product item[100];
-    double tmp;
-    char temp[20];
-    i=0;
-
-    while(!feof(f)) {
-        fscanf(f,"%d\t%s\t%lf\n",&item[i].code,item[i].name,&item[i].rate);
-        i++;
-    }
-    for(k=0; k<i; k++) {
-        for(j=k; j<i; j++) {
-            if(item[k].rate>item[j].rate) {
-                tmp=item[k].rate;
-                item[k].rate=item[j].rate;
-                item[j].rate=tmp;
-
-                item[k].code=item[k].code^item[j].code;
-                item[j].code=item[k].code^item[j].code;
-                item[k].code=item[k].code^item[j].code;
-
-                strcpy(temp,item[k].name);
-                strcpy(item[k].name,item[j].name);
-                strcpy(item[j].name,temp);
-
-            }
-        }
-    }
-    printf("\n\t\t    Rate   Name            Code\n");
-    for(k=0; k<i; k++)
-        printf("\t\t%8.2lf   %-11s   %6d\n",item[k].rate,item[k].name,item[k].code);
-    fclose(f);
-    printf("\nPress any key to main menu.");
-    getch();
-}
-
-
-void viewBYcode() {
-    system("cls");
-    f=fopen("list.txt","r");
-    if(f==NULL) {
-        printf("\nfile not found\n");
-        printf("\nPress any key to main menu.");
-        getch();
-        return;
-    }
-    product item[100];
-    double tmp;
-    char temp[20];
-    i=0;
-    while(!feof(f)) {
-        fscanf(f,"%d\t%s\t%lf\n",&item[i].code,item[i].name,&item[i].rate);
-        i++;
-    }
-    for(k=0; k<i; k++) {
-        for(j=k; j<i; j++) {
-            if(item[k].code>item[j].code) {
-                tmp=item[k].rate;
-                item[k].rate=item[j].rate;
-                item[j].rate=tmp;
-
-                item[k].code=item[k].code^item[j].code;
-                item[j].code=item[k].code^item[j].code;
-                item[k].code=item[k].code^item[j].code;
-
-                strcpy(temp,item[k].name);
-                strcpy(item[k].name,item[j].name);
-                strcpy(item[j].name,temp);
-
-            }
-        }
-    }
-    printf("\n\t\t  Code   Name              Rate\n");
-    for(k=0; k<i; k++)
-        printf("\t\t%6d   %-11s   %8.2lf\n",item[k].code,item[k].name,item[k].rate);
-    fclose(f);
-    printf("\nPress any key to main menu.");
-    getch();
-}
-
-void dltByName() {
-    system("cls");
-    FILE *dlt;
-    double p=-1;
-    f=fopen("list.txt","r");
-    if(f==NULL) {
-        printf("\nfile not found\n");
-        printf("\nPress any key to main menu.");
-        getch();
-        return;
-    }
-    dlt=fopen("temp.txt","w");
-    char namedlt[15];
-    printf("\n\n\t\tEnter item name:");
-    scanf("%s",namedlt);
-    flag=0;
-    while(!feof(f)) {
-        fscanf(f,"%d\t%s\t%lf\n",&item.code,item.name,&item.rate);
-        if(!stricmp(namedlt,item.name)) {
-            flag=1;
-            while(1) {
-                printf("\nPlease pay %.2lf Taka(0 to discard):",item.rate);
-                scanf("%lf",&p);
-                if(p==0)break;
-                if(p==item.rate) {
-                    printf("\nyou are successfully buy this item.\n");
-                    p=1;
-                    break;
-                }
-            }
-        }
-        if(p!=1)
-            fprintf(dlt,"%d\t%s\t%.2lf\n",item.code,item.name,item.rate);
-        p=-1;
-    }
-    fclose(f);
-    fclose(dlt);
-    if(flag==0)
-        printf("\nName not found\n");
-    remove("list.txt");
-    rename("temp.txt","list.txt");
-    fclose(f);
-    printf("\nPress any key to main menu.");
-    getch();
-}
-
-void dltByCode() {
-    system("cls");
-    FILE *dlt;
-    f=fopen("list.txt","r");
-    if(f==NULL) {
-        printf("\nfile not found\n");
-        printf("\nPress any key to main menu.");
-        getch();
-        return;
-    }
-    dlt=fopen("temp.txt","w");
-    int codlt;
-    double p=-1;
-    printf("\n\n\t\tEnter item code:");
-    scanf("%d",&codlt);
-    flag=0;
-    while(!feof(f)) {
-        fscanf(f,"%d\t%s\t%lf\n",&item.code,item.name,&item.rate);
-        if(codlt==item.code) {
-            flag=1;
-            while(1) {
-                printf("\nPlease pay %.2lf Taka(0 to discard):",item.rate);
-                scanf("%lf",&p);
-                if(p==0)break;
-                if(p==item.rate) {
-                    printf("\nyou are successfully buy this item.\n");
-                    p=1;
-                    break;
-                }
-            }
-        }
-        if(p!=1)
-            fprintf(dlt,"%d\t%s\t%.2lf\n",item.code,item.name,item.rate);
-        p=-1;
-    }
-    fclose(f);
-    fclose(dlt);
-    if(flag==0)
-        printf("\nCode not found\n");
-    remove("list.txt");
-    rename("temp.txt","list.txt");
-    fclose(f);
-    printf("\nPress any key to main menu.");
-    getch();
 }
